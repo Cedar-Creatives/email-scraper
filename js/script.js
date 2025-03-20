@@ -1,51 +1,50 @@
 document.getElementById('scrapeButton').addEventListener('click', async () => {
     const maxRetries = 5; // Maximum number of retries
-    const retryDelay = 2000; // Delay between retries in milliseconds
-
+    const initialRetryDelay = 2000; // Initial delay between retries in milliseconds
 
     const urlInput = document.getElementById('urlInput').value;
     const urls = urlInput.split('\n').map(url => url.trim()).filter(url => url);
     const emailSet = new Set();
+    const statusDisplay = document.getElementById('statusMessage'); // Status display element
 
     for (const url of urls) {
-        try {
-            const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-            let response;
-            let attempts = 0;
+        let attempts = 0;
 
-            while (attempts < maxRetries) {
-                try {
-                    response = await fetch(proxyUrl + url);
-                    if (response.ok) break; // Exit loop if fetch is successful
-                } catch (error) {
-                    console.error(`Attempt ${attempts + 1} failed:`, error.message);
+        while (attempts < maxRetries) {
+            try {
+                const proxyUrl = 'https://your-new-cors-proxy.com/'; // Update to a new CORS proxy
+                const response = await fetch(proxyUrl + url);
+
+                if (!response.ok) {
+                    console.error(`HTTP error! status: ${response.status}`);
+                    alert(`Failed to fetch ${url}. Status: ${response.status}`);
+                    break; // Exit the retry loop
                 }
+
+                const text = await response.text();
+                console.log(text); // Log the response text for debugging
+
+                const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}/g;
+
+                const emails = text.match(emailRegex) || []; // Ensure emails is always an array
+
+                if (emails) {
+                    emails.forEach(email => emailSet.add(email));
+                }
+                break; // Exit the retry loop if successful
+            } catch (error) {
                 attempts++;
-                await new Promise(resolve => setTimeout(resolve, retryDelay * attempts)); // Exponential backoff
+                console.error(`Error fetching ${url} (attempt ${attempts}):`, error.message); // Log only the error message
 
+                if (attempts >= maxRetries) {
+                    alert(`Failed to fetch ${url} after ${maxRetries} attempts. This may be due to CORS restrictions or an invalid URL. Please check and try again.`);
+                } else {
+                    const retryDelay = initialRetryDelay * Math.pow(2, attempts); // Exponential backoff
+                    statusDisplay.innerText = `Retrying ${url} in ${retryDelay / 1000} seconds... (Attempt ${attempts})`;
+                    statusDisplay.style.display = 'block'; // Show the status message
+                    await new Promise(resolve => setTimeout(resolve, retryDelay)); // Wait before retrying
+                }
             }
-
-
-            if (!response.ok) {
-                console.error(`HTTP error! status: ${response.status}`);
-                alert(`Failed to fetch ${url}. Status: ${response.status}`);
-                continue; // Skip to the next URL
-            }
-            const text = await response.text();
-
-            console.log(text); // Log the response text for debugging
-
-            const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}/g;
-
-            const emails = text.match(emailRegex) || []; // Ensure emails is always an array
-
-            if (emails) {
-                emails.forEach(email => emailSet.add(email));
-            }
-        } catch (error) {
-            console.error(`Error fetching ${url}:`, error.message); // Log only the error message
-
-            alert(`Failed to fetch ${url}. This may be due to CORS restrictions or an invalid URL. Please check and try again.`);
         }
     }
 
